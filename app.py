@@ -8,9 +8,11 @@ from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfigurati
 import av
 import time
 
+# Konfigurasi halaman Streamlit
 st.set_page_config(page_title="Deteksi BISINDO", layout="wide")
 st.title("🤟 Deteksi Bahasa Isyarat Indonesia (BISINDO)")
 
+# Fungsi untuk memuat model dan resource lainnya dengan caching
 @st.cache_resource
 def load_resources():
     try:
@@ -33,8 +35,10 @@ def load_resources():
         st.error(f"Terjadi error saat memuat resource: {e}")
         return None, None, None, None, None
 
+# Memuat semua resource yang dibutuhkan
 model_1_hand, model_2_hands, mp_hands_instance, mp_drawing, mp_drawing_styles = load_resources()
 
+# Kamus label untuk hasil prediksi
 labels_dict = {
     '0': 'C', '1': 'E', '2': 'I', '3': 'J', '4': 'L', '5': 'O', '6': 'R', '7': 'U', '8': 'V',
     '9': 'Z', '10': 'A', '11': 'B', '12': 'D', '13': 'F', '14': 'G', '15': 'H', '16': 'K',
@@ -46,14 +50,17 @@ labels_dict = {
     'RUMAH': 'Rumah', 'SEHAT': 'Sehat'
 }
 
+# Sidebar untuk navigasi dan informasi
 st.sidebar.header("Tentang Proyek")
 st.sidebar.info("Aplikasi ini menggunakan MediaPipe dan Scikit-learn untuk mengenali isyarat BISINDO. Dioptimalkan untuk berjalan di Streamlit Community Cloud.")
 st.sidebar.header("Pilih Mode Input")
 app_mode = st.sidebar.radio("Pilih mode:", ('Kamera Langsung', 'Unggah Gambar'))
 
+# Memastikan resource berhasil dimuat sebelum menjalankan aplikasi
 if not all((model_1_hand, model_2_hands, mp_hands_instance, mp_drawing, mp_drawing_styles)):
     st.warning("Aplikasi tidak dapat berjalan karena resource gagal dimuat.")
 else:
+    # Mode Kamera Langsung
     if app_mode == 'Kamera Langsung':
         st.header("Deteksi Real-Time")
         st.info("💡 Hasil prediksi akan muncul di dalam kotak di pojok kanan bawah video.")
@@ -73,7 +80,6 @@ else:
                 img = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
                 
                 H, W, _ = img.shape
-
                 self.frame_counter += 1
 
                 if self.frame_counter % self.process_every_n_frame == 0:
@@ -133,17 +139,35 @@ else:
 
         col1, col2 = st.columns([2, 1])
         with col1:
-            RTC_CONFIGURATION = RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]})
+            RTC_CONFIGURATION = RTCConfiguration({
+                "iceServers": [
+                    {"urls": ["stun:stun.l.google.com:19302"]},
+                    {
+                        "urls": ["turn:openrelay.metered.ca:80"],
+                        "username": "openrelayproject",
+                        "credential": "openrelayproject",
+                    },
+                    {
+                        "urls": ["turn:openrelay.metered.ca:443"],
+                        "username": "openrelayproject",
+                        "credential": "openrelayproject",
+                    }
+                ]
+            })
+            
             webrtc_streamer(
-                key="BISINDO-Detector", video_processor_factory=SignLanguageProcessor,
+                key="BISINDO-Detector", 
+                video_processor_factory=SignLanguageProcessor,
                 media_stream_constraints={"video": True, "audio": False},
-                async_processing=True, rtc_configuration=RTC_CONFIGURATION
+                async_processing=True, 
+                rtc_configuration=RTC_CONFIGURATION
             )
         with col2:
             st.subheader("Informasi")
             st.write("Aplikasi akan mendeteksi isyarat tangan dari video di sebelah kiri.")
             st.write("Hasil deteksi akan muncul di dalam kotak di pojok kanan bawah.")
 
+    # Mode Unggah Gambar
     elif app_mode == 'Unggah Gambar':
         st.header("Prediksi dari Gambar")
         uploaded_file = st.file_uploader("Pilih sebuah gambar...", type=["jpg", "jpeg", "png"])
